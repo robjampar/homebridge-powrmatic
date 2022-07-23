@@ -1,7 +1,7 @@
 import {CharacteristicValue, PlatformAccessory, Service} from 'homebridge';
 
 import {HomebridgePowrmatic} from './platform';
-import fetch from 'node-fetch';
+import axios from 'axios';
 
 interface DeviceStatus {
   ps: number;    // Power 0=off, 1=on
@@ -188,10 +188,10 @@ export class PowrmaticAirConditioner {
     const url = `http://${this.accessory.context.device.ipAddress}/api/v/1/status`;
     this.platform.log.debug('Getting status -> ' + url);
 
-    const response = await fetch(url);
+    const response = await axios.get(url);
     if (response.status === 200) {
       // eslint-disable-next-line
-      const status = await response.json() as any;
+      const status = await response.data;
       if(status && Object.prototype.hasOwnProperty.call(status, 'RESULT') && status.RESULT) {
         const deviceStatus: DeviceStatus = status.RESULT;
         return deviceStatus;
@@ -207,7 +207,8 @@ export class PowrmaticAirConditioner {
     const url = `http://${this.accessory.context.device.ipAddress}/api/v/1/${endpoint}?${query}`;
 
     this.platform.log.debug('Updating Device -> ' + url);
-    fetch(url, {method: 'POST'}).then(r => {
+
+    axios.post(url).then(r => {
       this.platform.log.debug('Updating Device -> ' + url + ' response -> ' + r.status);
     });
 
