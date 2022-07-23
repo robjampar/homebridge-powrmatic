@@ -71,11 +71,10 @@ export class PowrmaticAirConditioner {
      */
 
     setInterval(() => {
-      this.platform.log.debug('Updating HomeKit');
+      this.platform.log.debug('Updating HomeKit for device ' + this.accessory.context.device.deviceName);
 
       this.getDeviceStatus().then((status) => {
         if(status) {
-
           this.service.updateCharacteristic(this.platform.Characteristic.Active,
             (status.ps === 1 ? this.platform.Characteristic.Active.ACTIVE : this.platform.Characteristic.Active.INACTIVE),
           );
@@ -133,11 +132,28 @@ export class PowrmaticAirConditioner {
   }
 
   async setActive(value: CharacteristicValue) {
-    this.updateDevice('test', 'test');
+    let endpoint;
+    if(value === this.platform.Characteristic.Active.ACTIVE) {
+      endpoint = 'on';
+    } else {
+      endpoint = 'off';
+    }
+    this.updateDevice('power/' + endpoint);
     this.platform.log.debug('Set Characteristic Active ->', value);
   }
 
   async setTargetHeaterCoolerState(value: CharacteristicValue) {
+    let endpoint;
+    if(value === this.platform.Characteristic.TargetHeaterCoolerState.COOL) {
+      endpoint = 'cooling';
+    } else if(value === this.platform.Characteristic.TargetHeaterCoolerState.HEAT) {
+      endpoint = 'heating';
+    } else if(value === this.platform.Characteristic.TargetHeaterCoolerState.AUTO) {
+      endpoint = 'auto';
+    }
+
+    this.updateDevice('set/mode/' + endpoint);
+
     this.platform.log.debug('Set Characteristic TargetHeaterCoolerState ->', value);
   }
 
@@ -146,14 +162,25 @@ export class PowrmaticAirConditioner {
   }
 
   async setSwingMode(value: CharacteristicValue) {
+    let param;
+    if(value === this.platform.Characteristic.SwingMode.SWING_ENABLED) {
+      param = 0;
+    } else {
+      param = 7;
+    }
+    this.updateDevice('set/set/feature/rotation', { 'value': param });
     this.platform.log.debug('Set Characteristic SwingMode ->', value);
   }
 
   async setCoolingThresholdTemperature(value: CharacteristicValue) {
+    this.updateDevice('set/mode/cooling');
+    this.updateDevice('set/set/setpoint', { 'p_temp': value });
     this.platform.log.debug('Set Characteristic CoolingThresholdTemperature ->', value);
   }
 
   async setHeatingThresholdTemperature(value: CharacteristicValue) {
+    this.updateDevice('set/mode/heating');
+    this.updateDevice('set/set/setpoint', { 'p_temp': value });
     this.platform.log.debug('Set Characteristic HeatingThresholdTemperature ->', value);
   }
 

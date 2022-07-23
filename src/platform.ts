@@ -30,7 +30,7 @@ export class HomebridgePowrmatic implements DynamicPlatformPlugin {
     this.api.on('didFinishLaunching', () => {
       log.debug('Executed didFinishLaunching callback');
       // run the method to discover / register your devices as accessories
-      this.discoverDevices();
+      this.discoverDevices(config);
     });
   }
 
@@ -50,26 +50,22 @@ export class HomebridgePowrmatic implements DynamicPlatformPlugin {
    * Accessories must only be registered once, previously created accessories
    * must not be registered again to prevent "duplicate UUID" errors.
    */
-  discoverDevices() {
+  discoverDevices(config: PlatformConfig) {
 
-    // EXAMPLE ONLY
-    // A real plugin you would discover accessories from the local network, cloud services
-    // or a user-defined array in the platform config.
-    const exampleDevices = [
-      {
-        exampleUniqueId: 'ABCD',
-        ipAddress: '',
-        displayName: 'Bedroom',
-      },
-      {
-        exampleUniqueId: 'EFGH',
-        ipAddress: '',
-        displayName: 'Kitchen',
-      },
-    ];
+    if (!config || !Object.prototype.hasOwnProperty.call(config, 'devices')) {
+      this.log.info('No device config found');
+      return;
+    }
+
+    const devices = config.devices;
+
+    //   {
+    //     ipAddress: '',
+    //     displayName: '',
+    //   }
 
     // loop over the discovered devices and register each one if it has not already been registered
-    for (const device of exampleDevices) {
+    for (const device of devices) {
 
       // generate a unique id for the accessory this should be generated from
       // something globally unique, but constant, for example, the device serial
