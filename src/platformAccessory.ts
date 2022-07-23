@@ -3,6 +3,16 @@ import {CharacteristicValue, PlatformAccessory, Service} from 'homebridge';
 import {HomebridgePowrmatic} from './platform';
 import fetch from 'node-fetch';
 
+interface DeviceStatus {
+  ps: number;    // Power 0=off, 1=on
+  sp: number;    // Temperature Set point
+  fr: number;    // Fan Rotation: 0=on 7=off
+  fs: number;    // Fan Speed: 0=auto, 1, 2, 3
+  wm: number;    // Mode: 1=cooling 2=heating 3=dehumidification, 4=fan only, 5=auto
+  t: number;     // Ambient Temperature
+}
+
+
 /**
  * Platform Accessory
  * An instance of this class is created for each accessory your platform registers
@@ -64,14 +74,59 @@ export class PowrmaticAirConditioner {
       this.platform.log.debug('Updating HomeKit');
 
       this.getDeviceStatus().then((status) => {
-        this.service.updateCharacteristic(this.platform.Characteristic.Active, status);
-        this.service.updateCharacteristic(this.platform.Characteristic.CurrentHeaterCoolerState, true);
-        this.service.updateCharacteristic(this.platform.Characteristic.TargetHeaterCoolerState, motionDetected);
-        this.service.updateCharacteristic(this.platform.Characteristic.CurrentTemperature, motionDetected);
-        this.service.updateCharacteristic(this.platform.Characteristic.RotationSpeed, motionDetected);
-        this.service.updateCharacteristic(this.platform.Characteristic.SwingMode, motionDetected);
-        this.service.updateCharacteristic(this.platform.Characteristic.CoolingThresholdTemperature, motionDetected);
-        this.service.updateCharacteristic(this.platform.Characteristic.HeatingThresholdTemperature, motionDetected);
+        if(status) {
+
+          this.service.updateCharacteristic(this.platform.Characteristic.Active,
+            (status.ps === 1 ? this.platform.Characteristic.Active.ACTIVE : this.platform.Characteristic.Active.INACTIVE),
+          );
+
+          let currentState;
+          let targetState;
+          switch (status.wm) {
+            case 1:
+              currentState = this.platform.Characteristic.CurrentHeaterCoolerState.COOLING;
+              targetState = this.platform.Characteristic.TargetHeaterCoolerState.COOL;
+              break;
+            case 2:
+              currentState = this.platform.Characteristic.CurrentHeaterCoolerState.HEATING;
+              targetState = this.platform.Characteristic.TargetHeaterCoolerState.HEAT;
+              break;
+            case 3:
+              currentState = this.platform.Characteristic.CurrentHeaterCoolerState.IDLE;
+              targetState = this.platform.Characteristic.TargetHeaterCoolerState.AUTO;
+              break;
+            case 4:
+              currentState = this.platform.Characteristic.CurrentHeaterCoolerState.IDLE;
+              targetState = this.platform.Characteristic.TargetHeaterCoolerState.AUTO;
+              break;
+            case 5:
+              if(status.sp > status.t) {
+                currentState = this.platform.Characteristic.CurrentHeaterCoolerState.HEATING;
+                targetState = this.platform.Characteristic.TargetHeaterCoolerState.HEAT;
+              } else if (status.sp < status.t) {
+                currentState = this.platform.Characteristic.CurrentHeaterCoolerState.COOLING;
+                targetState = this.platform.Characteristic.TargetHeaterCoolerState.COOL;
+              } else {
+                currentState = this.platform.Characteristic.CurrentHeaterCoolerState.IDLE;
+                targetState = this.platform.Characteristic.TargetHeaterCoolerState.AUTO;
+              }
+              break;
+          }
+
+          this.service.updateCharacteristic(this.platform.Characteristic.CurrentHeaterCoolerState, currentState);
+          this.service.updateCharacteristic(this.platform.Characteristic.TargetHeaterCoolerState, targetState);
+          this.service.updateCharacteristic(this.platform.Characteristic.CurrentTemperature, status.t);
+
+          // this.service.updateCharacteristic(this.platform.Characteristic.RotationSpeed, status.fr);
+
+          this.service.updateCharacteristic(this.platform.Characteristic.SwingMode,
+            // eslint-disable-next-line max-len
+            (status.fs === 0 ? this.platform.Characteristic.SwingMode.SWING_ENABLED : this.platform.Characteristic.SwingMode.SWING_DISABLED),
+          );
+
+          this.service.updateCharacteristic(this.platform.Characteristic.CoolingThresholdTemperature, status.sp);
+          this.service.updateCharacteristic(this.platform.Characteristic.HeatingThresholdTemperature, status.sp);
+        }
       });
 
     }, 10000);
@@ -107,10 +162,17 @@ export class PowrmaticAirConditioner {
     this.platform.log.debug('Getting status -> ' + url);
 
     const response = await fetch(url);
-    if (response.status == 200) {
-      return await response.json();
+    if (response.status === 200) {
+      // eslint-disable-next-line
+      const status = await response.json() as any;
+      if(status && Object.prototype.hasOwnProperty.call(status, 'RESULT') && status.RESULT) {
+        const deviceStatus: DeviceStatus = status.RESULT;
+        return deviceStatus;
+      } else {
+        this.platform.log.debug('Error reading status ' + status);
+      }
     }
-    this.platform.log.debug('Error reaching device');
+    this.platform.log.debug('Error reaching device' + response);
   }
 
   updateDevice(endpoint, params = {}) {
