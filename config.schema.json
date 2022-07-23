@@ -11,12 +11,12 @@
           "title": "Device",
           "type": "object",
           "properties": {
-            "host": {
+            "ipAddress": {
               "title": "IP address (or hostname)",
               "type": "string",
               "placeholder": "192.168.0.7"
             },
-            "name": {
+            "displayName": {
               "title": "Name",
               "type": "string",
               "placeholder": "Powrmatic Air Conditioner"

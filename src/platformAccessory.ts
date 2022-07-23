@@ -188,28 +188,33 @@ export class PowrmaticAirConditioner {
     const url = `http://${this.accessory.context.device.ipAddress}/api/v/1/status`;
     this.platform.log.debug('Getting status -> ' + url);
 
-    const response = await axios.get(url);
-    if (response.status === 200) {
-      // eslint-disable-next-line
-      const status = await response.data;
-      if(status && Object.prototype.hasOwnProperty.call(status, 'RESULT') && status.RESULT) {
-        const deviceStatus: DeviceStatus = status.RESULT;
-        return deviceStatus;
-      } else {
-        this.platform.log.debug('Error reading status ' + status);
+    try {
+      const response = await axios({method: 'GET', url: url, timeout: 5000});
+      if (response.status === 200) {
+        const status = await response.data;
+        if (status && Object.prototype.hasOwnProperty.call(status, 'RESULT') && status.RESULT) {
+          const deviceStatus: DeviceStatus = status.RESULT;
+          return deviceStatus;
+        } else {
+          this.platform.log.debug('Error reading status ' + status);
+        }
       }
+    } catch (e) {
+      this.platform.log.error('Exception ' + e);
     }
-    this.platform.log.debug('Error reaching device' + response);
+    this.platform.log.error('Error reaching device ' + url);
   }
 
   updateDevice(endpoint, params = {}) {
     const query = Object.keys(params).map(x => `${x}=${params[x]}`).join('&');
     const url = `http://${this.accessory.context.device.ipAddress}/api/v/1/${endpoint}?${query}`;
 
-    this.platform.log.debug('Updating Device -> ' + url);
+    this.platform.log.info('Updating Device -> ' + url);
 
-    axios.post(url).then(r => {
-      this.platform.log.debug('Updating Device -> ' + url + ' response -> ' + r.status);
+    axios({method: 'POST', url: url, timeout: 10000}).then(r => {
+      this.platform.log.info('Updated Device -> ' + url + ' response -> ' + r.status);
+    }).catch(e => {
+      this.platform.log.error('Exception ' + e + ' No response during device update ' + url );
     });
 
   }
