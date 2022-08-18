@@ -8,7 +8,7 @@ interface DeviceStatus {
   sp: number;    // Temperature Set point
   fr: number;    // Fan Rotation: 0=on 7=off
   fs: number;    // Fan Speed: 0=auto, 1, 2, 3
-  wm: number;    // Mode: 1=cooling 2=heating 3=dehumidification, 4=fan only, 5=auto
+  wm: number;    // Mode: 0=heating(?) 1=cooling 2=heating 3=dehumidification, 4=fan only, 5=auto
   t: number;     // Ambient Temperature
 }
 
@@ -41,6 +41,7 @@ export class PowrmaticAirConditioner {
       .setCharacteristic(this.platform.Characteristic.Model, 'Default-Model')
       .setCharacteristic(this.platform.Characteristic.SerialNumber, 'Default-Serial');
 
+
     // get the HeaterCooler service if it exists, otherwise create a new HeaterCooler service
     // eslint-disable-next-line max-len
     this.service = this.accessory.getService(this.platform.Service.HeaterCooler) || this.accessory.addService(this.platform.Service.HeaterCooler);
@@ -61,9 +62,19 @@ export class PowrmaticAirConditioner {
       .onSet(this.setSwingMode.bind(this));
 
     this.service.getCharacteristic(this.platform.Characteristic.CoolingThresholdTemperature)
+      .setProps({
+        minValue: 16,
+        maxValue: 31,
+        minStep: 1,
+      })
       .onSet(this.setCoolingThresholdTemperature.bind(this));
 
     this.service.getCharacteristic(this.platform.Characteristic.HeatingThresholdTemperature)
+      .setProps({
+        minValue: 16,
+        maxValue: 31,
+        minStep: 1,
+      })
       .onSet(this.setHeatingThresholdTemperature.bind(this));
 
     /**
@@ -82,6 +93,10 @@ export class PowrmaticAirConditioner {
           let currentState;
           let targetState;
           switch (status.wm) {
+            case 0:
+              currentState = this.platform.Characteristic.CurrentHeaterCoolerState.HEATING;
+              targetState = this.platform.Characteristic.TargetHeaterCoolerState.HEAT;
+              break;
             case 1:
               currentState = this.platform.Characteristic.CurrentHeaterCoolerState.COOLING;
               targetState = this.platform.Characteristic.TargetHeaterCoolerState.COOL;
@@ -101,10 +116,10 @@ export class PowrmaticAirConditioner {
             case 5:
               if(status.sp > status.t) {
                 currentState = this.platform.Characteristic.CurrentHeaterCoolerState.HEATING;
-                targetState = this.platform.Characteristic.TargetHeaterCoolerState.HEAT;
+                targetState = this.platform.Characteristic.TargetHeaterCoolerState.AUTO;
               } else if (status.sp < status.t) {
                 currentState = this.platform.Characteristic.CurrentHeaterCoolerState.COOLING;
-                targetState = this.platform.Characteristic.TargetHeaterCoolerState.COOL;
+                targetState = this.platform.Characteristic.TargetHeaterCoolerState.AUTO;
               } else {
                 currentState = this.platform.Characteristic.CurrentHeaterCoolerState.IDLE;
                 targetState = this.platform.Characteristic.TargetHeaterCoolerState.AUTO;
@@ -115,12 +130,12 @@ export class PowrmaticAirConditioner {
           this.service.updateCharacteristic(this.platform.Characteristic.CurrentHeaterCoolerState, currentState);
           this.service.updateCharacteristic(this.platform.Characteristic.TargetHeaterCoolerState, targetState);
           this.service.updateCharacteristic(this.platform.Characteristic.CurrentTemperature, status.t);
-
-          // this.service.updateCharacteristic(this.platform.Characteristic.RotationSpeed, status.fr);
+          this.service.updateCharacteristic(this.platform.Characteristic.RotationSpeed,
+            this.convertRotationSpeedFromInnovaToHomeKit(status.fs));
 
           this.service.updateCharacteristic(this.platform.Characteristic.SwingMode,
             // eslint-disable-next-line max-len
-            (status.fs === 0 ? this.platform.Characteristic.SwingMode.SWING_ENABLED : this.platform.Characteristic.SwingMode.SWING_DISABLED),
+            (status.fr === 0 ? this.platform.Characteristic.SwingMode.SWING_ENABLED : this.platform.Characteristic.SwingMode.SWING_DISABLED),
           );
 
           this.service.updateCharacteristic(this.platform.Characteristic.CoolingThresholdTemperature, status.sp);
@@ -128,7 +143,7 @@ export class PowrmaticAirConditioner {
         }
       });
 
-    }, 10000);
+    }, 5000);
   }
 
   async setActive(value: CharacteristicValue) {
@@ -159,6 +174,40 @@ export class PowrmaticAirConditioner {
 
   async setRotationSpeed(value: CharacteristicValue) {
     this.platform.log.debug('Set Characteristic RotationSpeed ->', value);
+
+    if (value === 0) {
+      this.updateDevice('power/off');
+
+      this.service.updateCharacteristic(
+        this.platform.Characteristic.Active,
+        this.platform.Characteristic.Active.INACTIVE,
+      );
+
+    } else {
+      const param = this.convertRotationSpeedFromHomeKitToInnova(value);
+      this.updateDevice('set/fan', { 'value': param });
+      this.platform.log.debug('Set Characteristic RotationSpeed -> ', value);
+
+    }
+  }
+
+  convertRotationSpeedFromInnovaToHomeKit(value) {
+    const _rotationStops = {
+      3: 75,
+      2: 50,
+      1: 25,
+      0: 100,
+    };
+    return _rotationStops[value];
+  }
+
+  convertRotationSpeedFromHomeKitToInnova(value) {
+    const _rotationSteps = [
+      1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+      2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+      3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 0,
+    ];
+    return _rotationSteps[value];
   }
 
   async setSwingMode(value: CharacteristicValue) {
@@ -168,20 +217,36 @@ export class PowrmaticAirConditioner {
     } else {
       param = 7;
     }
-    this.updateDevice('set/set/feature/rotation', { 'value': param });
+    this.updateDevice('set/feature/rotation', { 'value': param });
     this.platform.log.debug('Set Characteristic SwingMode ->', value);
   }
 
   async setCoolingThresholdTemperature(value: CharacteristicValue) {
-    this.updateDevice('set/mode/cooling');
-    this.updateDevice('set/set/setpoint', { 'p_temp': value });
+    this.updateDevice('set/setpoint', { 'p_temp': value });
     this.platform.log.debug('Set Characteristic CoolingThresholdTemperature ->', value);
+
+    this.service.getCharacteristic(this.platform.Characteristic.TargetHeaterCoolerState)
+      .getValue((status, targetHeaterCoolerValue) => {
+        if(targetHeaterCoolerValue ===
+          this.platform.Characteristic.TargetHeaterCoolerState.AUTO) {
+          this.platform.log.debug('Auto setting Heating Threshold ->', value);
+          this.service.updateCharacteristic(this.platform.Characteristic.HeatingThresholdTemperature, value);
+        }
+      });
   }
 
   async setHeatingThresholdTemperature(value: CharacteristicValue) {
-    this.updateDevice('set/mode/heating');
-    this.updateDevice('set/set/setpoint', { 'p_temp': value });
+    this.updateDevice('set/setpoint', { 'p_temp': value });
     this.platform.log.debug('Set Characteristic HeatingThresholdTemperature ->', value);
+
+    this.service.getCharacteristic(this.platform.Characteristic.TargetHeaterCoolerState)
+      .getValue((status, targetHeaterCoolerValue) => {
+        if(targetHeaterCoolerValue ===
+          this.platform.Characteristic.TargetHeaterCoolerState.AUTO) {
+          this.platform.log.debug('Auto setting Cooling Threshold ->', value);
+          this.service.updateCharacteristic(this.platform.Characteristic.CoolingThresholdTemperature, value);
+        }
+      });
   }
 
   async getDeviceStatus() {
