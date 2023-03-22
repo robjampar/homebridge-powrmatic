@@ -138,8 +138,8 @@ export class PowrmaticAirConditioner {
             (status.fr === 0 ? this.platform.Characteristic.SwingMode.SWING_ENABLED : this.platform.Characteristic.SwingMode.SWING_DISABLED),
           );
 
-          this.service.updateCharacteristic(this.platform.Characteristic.CoolingThresholdTemperature, status.sp);
-          this.service.updateCharacteristic(this.platform.Characteristic.HeatingThresholdTemperature, status.sp);
+          this.service.updateCharacteristic(this.platform.Characteristic.CoolingThresholdTemperature, Math.in(Math.max(status.sp, 16), 31));
+          this.service.updateCharacteristic(this.platform.Characteristic.HeatingThresholdTemperature, Math.in(Math.max(status.sp, 16), 31));
         }
       });
 
@@ -254,7 +254,7 @@ export class PowrmaticAirConditioner {
     this.platform.log.debug('Getting status -> ' + url);
 
     try {
-      const response = await axios({method: 'GET', url: url, timeout: 5000});
+      const response = await axios({method: 'GET', url: url, timeout: 10000});
       if (response.status === 200) {
         const status = await response.data;
         if (status && Object.prototype.hasOwnProperty.call(status, 'RESULT') && status.RESULT) {
