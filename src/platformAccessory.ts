@@ -137,8 +137,7 @@ export class PowrmaticAirConditioner {
             // eslint-disable-next-line max-len
             (status.fr === 0 ? this.platform.Characteristic.SwingMode.SWING_ENABLED : this.platform.Characteristic.SwingMode.SWING_DISABLED),
           );
-          let setPoint;
-          setPoint = Math.min(Math.max(status.sp, 16), 31);
+          const setPoint = Math.min(Math.max(status.sp, 16), 31);
 
           this.service.updateCharacteristic(this.platform.Characteristic.CoolingThresholdTemperature, setPoint);
           this.service.updateCharacteristic(this.platform.Characteristic.HeatingThresholdTemperature, setPoint);
