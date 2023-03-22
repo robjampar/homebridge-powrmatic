@@ -138,8 +138,8 @@ export class PowrmaticAirConditioner {
             (status.fr === 0 ? this.platform.Characteristic.SwingMode.SWING_ENABLED : this.platform.Characteristic.SwingMode.SWING_DISABLED),
           );
 
-          this.service.updateCharacteristic(this.platform.Characteristic.CoolingThresholdTemperature, Math.in(Math.max(status.sp, 16), 31));
-          this.service.updateCharacteristic(this.platform.Characteristic.HeatingThresholdTemperature, Math.in(Math.max(status.sp, 16), 31));
+          this.service.updateCharacteristic(this.platform.Characteristic.CoolingThresholdTemperature, Math.min(Math.max(status.sp, 16), 31));
+          this.service.updateCharacteristic(this.platform.Characteristic.HeatingThresholdTemperature, Math.min(Math.max(status.sp, 16), 31));
         }
       });
 
