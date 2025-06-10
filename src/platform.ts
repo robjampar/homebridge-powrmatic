@@ -62,8 +62,6 @@ export class HomebridgePowrmatic implements DynamicPlatformPlugin {
         this.log.info('Adding new accessory:', device.displayName);
 
         const accessory = new this.api.platformAccessory(device.displayName, uuid);
-        this.log.debug('New accessory created:', JSON.stringify(accessory, null, 2));
-
         accessory.context.device = device;
         this.log.debug('Accessory context set:', JSON.stringify(accessory.context, null, 2));
 
