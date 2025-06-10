@@ -4,30 +4,26 @@ import {HomebridgePowrmatic} from './platform';
 import axios from 'axios';
 
 interface DeviceStatus {
-  ps: number;    // Power 0=off, 1=on
-  sp: number;    // Temperature Set point
-  fr: number;    // Fan Rotation: 0=on 7=off
-  fs: number;    // Fan Speed: 0=auto, 1, 2, 3
-  wm: number;    // Mode: 0=heating(?) 1=cooling 2=heating 3=dehumidification, 4=fan only, 5=auto
-  t: number;     // Ambient Temperature
+  ps: number;
+  sp: number;
+  fr: number;
+  fs: number;
+  wm: number;
+  t: number;
 }
 
-
-/**
- * Platform Accessory
- * An instance of this class is created for each accessory your platform registers
- * Each accessory may expose multiple services of different service types.
- */
 export class PowrmaticAirConditioner {
   private service: Service;
 
-  /**
-   * These are just used to create a working example
-   * You should implement your own code to track the state of your accessory
-   */
-  private exampleStates = {
+  private state = {
     active: false,
-    Brightness: 100,
+    targetHeaterCoolerState: 2,
+    rotationSpeed: 0,
+    swingMode: this.platform.Characteristic.SwingMode.SWING_DISABLED,
+    coolingThresholdTemperature: 22,
+    heatingThresholdTemperature: 22,
+    currentTemperature: 22,
+    currentHeaterCoolerState: this.platform.Characteristic.CurrentHeaterCoolerState.IDLE,
   };
 
   constructor(
@@ -35,18 +31,14 @@ export class PowrmaticAirConditioner {
     private readonly accessory: PlatformAccessory,
   ) {
 
-    // set accessory information
+    this.platform.log.info(`Initializing accessory: ${accessory.displayName}`);
     this.accessory.getService(this.platform.Service.AccessoryInformation)!
       .setCharacteristic(this.platform.Characteristic.Manufacturer, 'Powrmatic')
       .setCharacteristic(this.platform.Characteristic.Model, 'Default-Model')
       .setCharacteristic(this.platform.Characteristic.SerialNumber, 'Default-Serial');
 
-
-    // get the HeaterCooler service if it exists, otherwise create a new HeaterCooler service
-    // eslint-disable-next-line max-len
     this.service = this.accessory.getService(this.platform.Service.HeaterCooler) || this.accessory.addService(this.platform.Service.HeaterCooler);
 
-    // set the service name, this is what is displayed as the default name on the Home app
     this.service.setCharacteristic(this.platform.Characteristic.Name, accessory.context.device.displayName);
 
     this.service.getCharacteristic(this.platform.Characteristic.Active)
@@ -77,70 +69,72 @@ export class PowrmaticAirConditioner {
       })
       .onSet(this.setHeatingThresholdTemperature.bind(this));
 
-    /**
-     * Updating characteristics values asynchronously.
-     */
-
     setInterval(() => {
-      this.platform.log.debug('Updating HomeKit for device ' + this.accessory.context.device.deviceName);
+      this.platform.log.debug(`[${this.accessory.displayName}] Updating HomeKit`);
 
       this.getDeviceStatus().then((status) => {
         if(status) {
+          this.platform.log.debug(`[${this.accessory.displayName}] Received device status:`, JSON.stringify(status));
+          this.state.active = status.ps === 1;
           this.service.updateCharacteristic(this.platform.Characteristic.Active,
-            (status.ps === 1 ? this.platform.Characteristic.Active.ACTIVE : this.platform.Characteristic.Active.INACTIVE),
+            (this.state.active ? this.platform.Characteristic.Active.ACTIVE : this.platform.Characteristic.Active.INACTIVE),
           );
 
-          let currentState;
-          let targetState;
           switch (status.wm) {
-            case 0:
-              currentState = this.platform.Characteristic.CurrentHeaterCoolerState.HEATING;
-              targetState = this.platform.Characteristic.TargetHeaterCoolerState.HEAT;
+            case 0: // Innova manual heat
+              this.state.currentHeaterCoolerState = this.platform.Characteristic.CurrentHeaterCoolerState.HEATING;
+              this.state.targetHeaterCoolerState = this.platform.Characteristic.TargetHeaterCoolerState.HEAT;
               break;
-            case 1:
-              currentState = this.platform.Characteristic.CurrentHeaterCoolerState.COOLING;
-              targetState = this.platform.Characteristic.TargetHeaterCoolerState.COOL;
+            case 1: // Innova manual cool
+              this.state.currentHeaterCoolerState = this.platform.Characteristic.CurrentHeaterCoolerState.COOLING;
+              this.state.targetHeaterCoolerState = this.platform.Characteristic.TargetHeaterCoolerState.COOL;
               break;
-            case 2:
-              currentState = this.platform.Characteristic.CurrentHeaterCoolerState.HEATING;
-              targetState = this.platform.Characteristic.TargetHeaterCoolerState.HEAT;
+            case 2: // Innova manual dry
+              this.state.currentHeaterCoolerState = this.platform.Characteristic.CurrentHeaterCoolerState.IDLE;
+              this.state.targetHeaterCoolerState = this.platform.Characteristic.TargetHeaterCoolerState.AUTO;
               break;
-            case 3:
-              currentState = this.platform.Characteristic.CurrentHeaterCoolerState.IDLE;
-              targetState = this.platform.Characteristic.TargetHeaterCoolerState.AUTO;
+            case 3: // Innova manual fan only
+              this.state.currentHeaterCoolerState = this.platform.Characteristic.CurrentHeaterCoolerState.IDLE;
+              this.state.targetHeaterCoolerState = this.platform.Characteristic.TargetHeaterCoolerState.AUTO;
               break;
-            case 4:
-              currentState = this.platform.Characteristic.CurrentHeaterCoolerState.IDLE;
-              targetState = this.platform.Characteristic.TargetHeaterCoolerState.AUTO;
-              break;
-            case 5:
+            case 4: // Innova auto
               if(status.sp > status.t) {
-                currentState = this.platform.Characteristic.CurrentHeaterCoolerState.HEATING;
-                targetState = this.platform.Characteristic.TargetHeaterCoolerState.AUTO;
+                this.state.currentHeaterCoolerState = this.platform.Characteristic.CurrentHeaterCoolerState.HEATING;
+                this.state.targetHeaterCoolerState = this.platform.Characteristic.TargetHeaterCoolerState.AUTO;
               } else if (status.sp < status.t) {
-                currentState = this.platform.Characteristic.CurrentHeaterCoolerState.COOLING;
-                targetState = this.platform.Characteristic.TargetHeaterCoolerState.AUTO;
+                this.state.currentHeaterCoolerState = this.platform.Characteristic.CurrentHeaterCoolerState.COOLING;
+                this.state.targetHeaterCoolerState = this.platform.Characteristic.TargetHeaterCoolerState.AUTO;
               } else {
-                currentState = this.platform.Characteristic.CurrentHeaterCoolerState.IDLE;
-                targetState = this.platform.Characteristic.TargetHeaterCoolerState.AUTO;
+                this.state.currentHeaterCoolerState = this.platform.Characteristic.CurrentHeaterCoolerState.IDLE;
+                this.state.targetHeaterCoolerState = this.platform.Characteristic.TargetHeaterCoolerState.AUTO;
               }
               break;
           }
 
-          this.service.updateCharacteristic(this.platform.Characteristic.CurrentHeaterCoolerState, currentState);
-          this.service.updateCharacteristic(this.platform.Characteristic.TargetHeaterCoolerState, targetState);
-          this.service.updateCharacteristic(this.platform.Characteristic.CurrentTemperature, status.t);
-          this.service.updateCharacteristic(this.platform.Characteristic.RotationSpeed,
-            this.convertRotationSpeedFromInnovaToHomeKit(status.fs));
+          this.service.updateCharacteristic(this.platform.Characteristic.CurrentHeaterCoolerState, this.state.currentHeaterCoolerState);
+          this.service.updateCharacteristic(this.platform.Characteristic.TargetHeaterCoolerState, this.state.targetHeaterCoolerState);
+          this.state.currentTemperature = status.t;
+          this.service.updateCharacteristic(this.platform.Characteristic.CurrentTemperature, this.state.currentTemperature);
+          this.state.rotationSpeed = this.convertRotationSpeedFromInnovaToHomeKit(status.fs);
+          this.service.updateCharacteristic(this.platform.Characteristic.RotationSpeed, this.state.rotationSpeed);
 
+          this.state.swingMode = (status.fr === 0 ? this.platform.Characteristic.SwingMode.SWING_ENABLED :
+            this.platform.Characteristic.SwingMode.SWING_DISABLED);
           this.service.updateCharacteristic(this.platform.Characteristic.SwingMode,
-            // eslint-disable-next-line max-len
-            (status.fr === 0 ? this.platform.Characteristic.SwingMode.SWING_ENABLED : this.platform.Characteristic.SwingMode.SWING_DISABLED),
+            this.state.swingMode,
           );
           const setPoint = Math.min(Math.max(status.sp, 16), 31);
+          this.state.coolingThresholdTemperature = setPoint;
+          this.state.heatingThresholdTemperature = setPoint;
 
-          this.service.updateCharacteristic(this.platform.Characteristic.CoolingThresholdTemperature, setPoint);
-          this.service.updateCharacteristic(this.platform.Characteristic.HeatingThresholdTemperature, setPoint);
+          this.service.updateCharacteristic(this.platform.Characteristic.CoolingThresholdTemperature,
+            this.state.coolingThresholdTemperature);
+          this.service.updateCharacteristic(this.platform.Characteristic.HeatingThresholdTemperature,
+            this.state.heatingThresholdTemperature);
+
+          this.platform.log.debug(`[${this.accessory.displayName}] Updated HomeKit state:`, JSON.stringify(this.state));
+        } else {
+          this.platform.log.warn(`[${this.accessory.displayName}] Failed to get device status.`);
         }
       });
 
@@ -148,17 +142,20 @@ export class PowrmaticAirConditioner {
   }
 
   async setActive(value: CharacteristicValue) {
+    this.platform.log.info(`[${this.accessory.displayName}] Set Active -> ${value}`);
     let endpoint;
     if(value === this.platform.Characteristic.Active.ACTIVE) {
       endpoint = 'on';
     } else {
       endpoint = 'off';
     }
-    this.updateDevice('power/' + endpoint);
-    this.platform.log.debug('Set Characteristic Active ->', value);
+    this.updateDevice('power/' + endpoint).then(() => {
+      this.state.active = value as boolean;
+    });
   }
 
   async setTargetHeaterCoolerState(value: CharacteristicValue) {
+    this.platform.log.info(`[${this.accessory.displayName}] Set TargetHeaterCoolerState -> ${value}`);
     let endpoint;
     if(value === this.platform.Characteristic.TargetHeaterCoolerState.COOL) {
       endpoint = 'cooling';
@@ -166,29 +163,37 @@ export class PowrmaticAirConditioner {
       endpoint = 'heating';
     } else if(value === this.platform.Characteristic.TargetHeaterCoolerState.AUTO) {
       endpoint = 'auto';
+    } else {
+      this.platform.log.warn(`[${this.accessory.displayName}] Unsupported TargetHeaterCoolerState: ${value}`);
+      return;
     }
 
-    this.updateDevice('set/mode/' + endpoint);
-
-    this.platform.log.debug('Set Characteristic TargetHeaterCoolerState ->', value);
+    this.updateDevice('set/mode/' + endpoint).then(() => {
+      this.state.targetHeaterCoolerState = value as number;
+    });
   }
 
   async setRotationSpeed(value: CharacteristicValue) {
-    this.platform.log.debug('Set Characteristic RotationSpeed ->', value);
+    this.platform.log.info(`[${this.accessory.displayName}] Set RotationSpeed -> ${value}`);
 
     if (value === 0) {
-      this.updateDevice('power/off');
-
-      this.service.updateCharacteristic(
-        this.platform.Characteristic.Active,
-        this.platform.Characteristic.Active.INACTIVE,
-      );
-
+      this.updateDevice('power/off').then(() => {
+        this.service.updateCharacteristic(
+          this.platform.Characteristic.Active,
+          this.platform.Characteristic.Active.INACTIVE,
+        );
+        this.state.active = false;
+        this.state.rotationSpeed = 0;
+      });
     } else {
       const param = this.convertRotationSpeedFromHomeKitToInnova(value);
-      this.updateDevice('set/fan', { 'value': param });
-      this.platform.log.debug('Set Characteristic RotationSpeed -> ', value);
-
+      this.updateDevice('set/fan', { 'value': param }).then(() => {
+        this.state.rotationSpeed = value as number;
+        if (!this.state.active) {
+          this.service.updateCharacteristic(this.platform.Characteristic.Active, this.platform.Characteristic.Active.ACTIVE);
+          this.state.active = true;
+        }
+      });
     }
   }
 
@@ -212,77 +217,74 @@ export class PowrmaticAirConditioner {
   }
 
   async setSwingMode(value: CharacteristicValue) {
+    this.platform.log.info(`[${this.accessory.displayName}] Set SwingMode -> ${value}`);
     let param;
     if(value === this.platform.Characteristic.SwingMode.SWING_ENABLED) {
       param = 0;
     } else {
       param = 7;
     }
-    this.updateDevice('set/feature/rotation', { 'value': param });
-    this.platform.log.debug('Set Characteristic SwingMode ->', value);
+    this.updateDevice('set/feature/rotation', { 'value': param }).then(() => {
+      this.state.swingMode = value as number;
+    });
   }
 
   async setCoolingThresholdTemperature(value: CharacteristicValue) {
-    this.updateDevice('set/setpoint', { 'p_temp': value });
-    this.platform.log.debug('Set Characteristic CoolingThresholdTemperature ->', value);
-
-    this.service.getCharacteristic(this.platform.Characteristic.TargetHeaterCoolerState)
-      .getValue((status, targetHeaterCoolerValue) => {
-        if(targetHeaterCoolerValue ===
-          this.platform.Characteristic.TargetHeaterCoolerState.AUTO) {
-          this.platform.log.debug('Auto setting Heating Threshold ->', value);
-          this.service.updateCharacteristic(this.platform.Characteristic.HeatingThresholdTemperature, value);
-        }
-      });
+    this.platform.log.info(`[${this.accessory.displayName}] Set CoolingThresholdTemperature -> ${value}`);
+    this.updateDevice('set/setpoint', { 'p_temp': value }).then(() => {
+      this.state.coolingThresholdTemperature = value as number;
+      if (this.state.targetHeaterCoolerState === this.platform.Characteristic.TargetHeaterCoolerState.AUTO) {
+        this.platform.log.debug(`[${this.accessory.displayName}] Auto setting Heating Threshold -> ${value}`);
+        this.service.updateCharacteristic(this.platform.Characteristic.HeatingThresholdTemperature, value);
+        this.state.heatingThresholdTemperature = value as number;
+      }
+    });
   }
 
   async setHeatingThresholdTemperature(value: CharacteristicValue) {
-    this.updateDevice('set/setpoint', { 'p_temp': value });
-    this.platform.log.debug('Set Characteristic HeatingThresholdTemperature ->', value);
-
-    this.service.getCharacteristic(this.platform.Characteristic.TargetHeaterCoolerState)
-      .getValue((status, targetHeaterCoolerValue) => {
-        if(targetHeaterCoolerValue ===
-          this.platform.Characteristic.TargetHeaterCoolerState.AUTO) {
-          this.platform.log.debug('Auto setting Cooling Threshold ->', value);
-          this.service.updateCharacteristic(this.platform.Characteristic.CoolingThresholdTemperature, value);
-        }
-      });
+    this.platform.log.info(`[${this.accessory.displayName}] Set HeatingThresholdTemperature -> ${value}`);
+    this.updateDevice('set/setpoint', { 'p_temp': value }).then(() => {
+      this.state.heatingThresholdTemperature = value as number;
+      if (this.state.targetHeaterCoolerState === this.platform.Characteristic.TargetHeaterCoolerState.AUTO) {
+        this.platform.log.debug(`[${this.accessory.displayName}] Auto setting Cooling Threshold -> ${value}`);
+        this.service.updateCharacteristic(this.platform.Characteristic.CoolingThresholdTemperature, value);
+        this.state.coolingThresholdTemperature = value as number;
+      }
+    });
   }
 
   async getDeviceStatus() {
     const url = `http://${this.accessory.context.device.ipAddress}/api/v/1/status`;
-    this.platform.log.debug('Getting status -> ' + url);
-
+    this.platform.log.debug(`[${this.accessory.displayName}] Getting device status from ${url}`);
     try {
-      const response = await axios({method: 'GET', url: url, timeout: 10000});
-      if (response.status === 200) {
-        const status = await response.data;
-        if (status && Object.prototype.hasOwnProperty.call(status, 'RESULT') && status.RESULT) {
-          const deviceStatus: DeviceStatus = status.RESULT;
-          return deviceStatus;
-        } else {
-          this.platform.log.debug('Error reading status ' + status);
-        }
+      const response = await axios.get(url, { timeout: 5000 });
+      this.platform.log.debug(`[${this.accessory.displayName}] Device status response:`, JSON.stringify(response.data));
+      if (response.data && response.data.success) {
+        return response.data.data as DeviceStatus;
+      } else {
+        this.platform.log.error(`[${this.accessory.displayName}] Failed to get device status. Response:`,
+          JSON.stringify(response.data));
+        return null;
       }
-    } catch (e) {
-      this.platform.log.error('Exception ' + e);
+    } catch (error) {
+      this.platform.log.error(`[${this.accessory.displayName}] Error getting device status: ${error}`);
+      return null;
     }
-    this.platform.log.error('Error reaching device ' + url);
   }
 
-  updateDevice(endpoint, params = {}) {
-    const query = Object.keys(params).map(x => `${x}=${params[x]}`).join('&');
-    const url = `http://${this.accessory.context.device.ipAddress}/api/v/1/${endpoint}?${query}`;
-
-    this.platform.log.info('Updating Device -> ' + url);
-
-    axios({method: 'POST', url: url, timeout: 10000}).then(r => {
-      this.platform.log.info('Updated Device -> ' + url + ' response -> ' + r.status);
-    }).catch(e => {
-      this.platform.log.error('Exception ' + e + ' No response during device update ' + url );
-    });
-
+  async updateDevice(endpoint: string, params = {}) {
+    const url = `http://${this.accessory.context.device.ipAddress}/api/v/1/${endpoint}`;
+    this.platform.log.info(`[${this.accessory.displayName}] Updating device at ${url} with params: ${JSON.stringify(params)}`);
+    try {
+      const response = await axios.post(url, params, { timeout: 5000 });
+      this.platform.log.debug(`[${this.accessory.displayName}] Device update response:`, JSON.stringify(response.data));
+      if (!response.data || !response.data.success) {
+        this.platform.log.error(`[${this.accessory.displayName}] Failed to update device. Response:`,
+          JSON.stringify(response.data));
+      }
+    } catch (error) {
+      this.platform.log.error(`[${this.accessory.displayName}] Error updating device: ${error}`);
+    }
   }
 
 }
