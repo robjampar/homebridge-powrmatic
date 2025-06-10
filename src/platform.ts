@@ -53,7 +53,6 @@ export class HomebridgePowrmatic implements DynamicPlatformPlugin {
 
       if (existingAccessory) {
         this.log.info('Restoring existing accessory from cache:', existingAccessory.displayName);
-        this.log.debug('Existing accessory details:', JSON.stringify(existingAccessory, null, 2));
 
         new PowrmaticAirConditioner(this, existingAccessory);
         this.log.debug('PowrmaticAirConditioner instance created for existing accessory.');

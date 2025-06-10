@@ -75,7 +75,7 @@ export class PowrmaticAirConditioner {
 
       this.getDeviceStatus().then((status) => {
         if(status) {
-          this.platform.log.debug(`[${this.accessory.displayName}] Received device status:`, JSON.stringify(status));
+          this.platform.log.debug(`[${this.accessory.displayName}] Received device status:`, status);
           this.state.active = status.ps === 1;
           this.service.updateCharacteristic(this.platform.Characteristic.Active,
             (this.state.active ? this.platform.Characteristic.Active.ACTIVE : this.platform.Characteristic.Active.INACTIVE),
@@ -133,7 +133,7 @@ export class PowrmaticAirConditioner {
           this.service.updateCharacteristic(this.platform.Characteristic.HeatingThresholdTemperature,
             this.state.heatingThresholdTemperature);
 
-          this.platform.log.debug(`[${this.accessory.displayName}] Updated HomeKit state:`, JSON.stringify(this.state));
+          this.platform.log.debug(`[${this.accessory.displayName}] Updated HomeKit state:`, this.state);
         } else {
           this.platform.log.warn(`[${this.accessory.displayName}] Failed to get device status.`);
         }
@@ -259,12 +259,12 @@ export class PowrmaticAirConditioner {
     this.platform.log.debug(`[${this.accessory.displayName}] Getting device status from ${url}`);
     try {
       const response = await axios.get(url, { timeout: 5000 });
-      this.platform.log.debug(`[${this.accessory.displayName}] Device status response:`, JSON.stringify(response.data));
+      this.platform.log.debug(`[${this.accessory.displayName}] Device status response:`, response.data);
       if (response.data && response.data.success) {
         return response.data.data as DeviceStatus;
       } else {
         this.platform.log.error(`[${this.accessory.displayName}] Failed to get device status. Response:`,
-          JSON.stringify(response.data));
+          response.data);
         return null;
       }
     } catch (error) {
@@ -275,13 +275,13 @@ export class PowrmaticAirConditioner {
 
   async updateDevice(endpoint: string, params = {}) {
     const url = `http://${this.accessory.context.device.ipAddress}/api/v/1/${endpoint}`;
-    this.platform.log.info(`[${this.accessory.displayName}] Updating device at ${url} with params: ${JSON.stringify(params)}`);
+    this.platform.log.info(`[${this.accessory.displayName}] Updating device at ${url} with params:`, params);
     try {
       const response = await axios.post(url, params, { timeout: 5000 });
-      this.platform.log.debug(`[${this.accessory.displayName}] Device update response:`, JSON.stringify(response.data));
+      this.platform.log.debug(`[${this.accessory.displayName}] Device update response:`, response.data);
       if (!response.data || !response.data.success) {
         this.platform.log.error(`[${this.accessory.displayName}] Failed to update device. Response:`,
-          JSON.stringify(response.data));
+          response.data);
       }
     } catch (error) {
       this.platform.log.error(`[${this.accessory.displayName}] Error updating device: ${error}`);
