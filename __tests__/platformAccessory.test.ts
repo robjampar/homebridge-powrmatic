@@ -160,7 +160,8 @@ describe('PowrmaticAirConditioner', () => {
     await jest.advanceTimersByTimeAsync(5000);
 
     expect(mockedAxios.get).toHaveBeenCalled();
-    expect(mockService.updateCharacteristic).toHaveBeenCalledWith(mockPlatform.Characteristic.Active, mockPlatform.Characteristic.Active.ACTIVE);
-    expect(mockService.updateCharacteristic).toHaveBeenCalledWith(mockPlatform.Characteristic.CurrentTemperature, 25);
+    const { Active, CurrentTemperature } = mockPlatform.Characteristic;
+    expect(mockService.updateCharacteristic).toHaveBeenCalledWith(Active, Active.ACTIVE);
+    expect(mockService.updateCharacteristic).toHaveBeenCalledWith(CurrentTemperature, 25);
   });
 });

@@ -37,7 +37,8 @@ export class PowrmaticAirConditioner {
       .setCharacteristic(this.platform.Characteristic.Model, 'Default-Model')
       .setCharacteristic(this.platform.Characteristic.SerialNumber, 'Default-Serial');
 
-    this.service = this.accessory.getService(this.platform.Service.HeaterCooler) || this.accessory.addService(this.platform.Service.HeaterCooler);
+    this.service = this.accessory.getService(this.platform.Service.HeaterCooler)
+      || this.accessory.addService(this.platform.Service.HeaterCooler);
 
     this.service.setCharacteristic(this.platform.Characteristic.Name, accessory.context.device.displayName);
 

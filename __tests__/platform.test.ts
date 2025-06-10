@@ -159,7 +159,7 @@ describe('HomebridgePowrmatic', () => {
       name: 'Powrmatic',
     };
     // discoverDevices will be called from the constructor via didFinishLaunching
-    const newPlatform = new HomebridgePowrmatic(mockLog, configWithoutDevices, mockApi);
+    new HomebridgePowrmatic(mockLog, configWithoutDevices, mockApi);
     if(didFinishLaunchingCallback){
       didFinishLaunchingCallback();
     }
