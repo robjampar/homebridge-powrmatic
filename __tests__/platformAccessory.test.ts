@@ -154,14 +154,21 @@ describe('PowrmaticAirConditioner', () => {
       fs: 1, // fan speed
       fr: 0, // swing on
     };
-    mockedAxios.get.mockResolvedValue({ data: { success: true, data: mockStatus } });
+    mockedAxios.get.mockResolvedValue({ data: { success: true, RESULT: mockStatus } });
 
     // Manually trigger the interval
     await jest.advanceTimersByTimeAsync(5000);
 
-    expect(mockedAxios.get).toHaveBeenCalled();
-    const { Active, CurrentTemperature } = mockPlatform.Characteristic;
+    expect(mockedAxios.get).toHaveBeenCalledWith('http://127.0.0.1/api/v/1/status', { timeout: 5000 });
+    const { Active, CurrentTemperature, CurrentHeaterCoolerState, TargetHeaterCoolerState, RotationSpeed, SwingMode,
+      CoolingThresholdTemperature, HeatingThresholdTemperature } = mockPlatform.Characteristic;
     expect(mockService.updateCharacteristic).toHaveBeenCalledWith(Active, Active.ACTIVE);
+    expect(mockService.updateCharacteristic).toHaveBeenCalledWith(CurrentHeaterCoolerState, CurrentHeaterCoolerState.COOLING);
+    expect(mockService.updateCharacteristic).toHaveBeenCalledWith(TargetHeaterCoolerState, TargetHeaterCoolerState.COOL);
     expect(mockService.updateCharacteristic).toHaveBeenCalledWith(CurrentTemperature, 25);
+    expect(mockService.updateCharacteristic).toHaveBeenCalledWith(RotationSpeed, 25);
+    expect(mockService.updateCharacteristic).toHaveBeenCalledWith(SwingMode, SwingMode.SWING_ENABLED);
+    expect(mockService.updateCharacteristic).toHaveBeenCalledWith(CoolingThresholdTemperature, 22);
+    expect(mockService.updateCharacteristic).toHaveBeenCalledWith(HeatingThresholdTemperature, 22);
   });
 });
