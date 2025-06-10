@@ -78,6 +78,10 @@ const createMockAccessory = (displayName: string, uuid: string, ipAddress: strin
     },
     getService: jest.fn().mockReturnValue({
       setCharacteristic: jest.fn().mockReturnThis(),
+      getCharacteristic: jest.fn().mockReturnValue({
+        onSet: jest.fn().mockReturnThis(),
+        setProps: jest.fn().mockReturnThis(),
+      }),
     }),
   } as unknown as PlatformAccessory;
 };
@@ -97,6 +101,10 @@ describe('HomebridgePowrmatic', () => {
     ],
   };
 
+  beforeAll(() => {
+    jest.useFakeTimers();
+  });
+
   beforeEach(() => {
     jest.clearAllMocks();
 
@@ -108,6 +116,10 @@ describe('HomebridgePowrmatic', () => {
     });
 
     platform = new HomebridgePowrmatic(mockLog, mockConfig, mockApi);
+  });
+
+  afterAll(() => {
+    jest.useRealTimers();
   });
 
   function triggerDidFinishLaunching() {
