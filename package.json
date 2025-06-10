@@ -13,7 +13,7 @@
     "url": "https://github.com/robjampar/homebridge-powrmatic/issues"
   },
   "engines": {
-    "node": ">=16.10.9",
+    "node": ">=18.0.0",
     "homebridge": ">=2.0.0"
   },
   "main": "dist/index.js",
