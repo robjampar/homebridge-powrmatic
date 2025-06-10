@@ -150,9 +150,8 @@ export class PowrmaticAirConditioner {
     } else {
       endpoint = 'off';
     }
-    this.updateDevice('power/' + endpoint).then(() => {
-      this.state.active = value as boolean;
-    });
+    await this.updateDevice('power/' + endpoint);
+    this.state.active = value as boolean;
   }
 
   async setTargetHeaterCoolerState(value: CharacteristicValue) {
@@ -169,32 +168,29 @@ export class PowrmaticAirConditioner {
       return;
     }
 
-    this.updateDevice('set/mode/' + endpoint).then(() => {
-      this.state.targetHeaterCoolerState = value as number;
-    });
+    await this.updateDevice('set/mode/' + endpoint);
+    this.state.targetHeaterCoolerState = value as number;
   }
 
   async setRotationSpeed(value: CharacteristicValue) {
     this.platform.log.info(`[${this.accessory.displayName}] Set RotationSpeed -> ${value}`);
 
     if (value === 0) {
-      this.updateDevice('power/off').then(() => {
-        this.service.updateCharacteristic(
-          this.platform.Characteristic.Active,
-          this.platform.Characteristic.Active.INACTIVE,
-        );
-        this.state.active = false;
-        this.state.rotationSpeed = 0;
-      });
+      await this.updateDevice('power/off');
+      this.service.updateCharacteristic(
+        this.platform.Characteristic.Active,
+        this.platform.Characteristic.Active.INACTIVE,
+      );
+      this.state.active = false;
+      this.state.rotationSpeed = 0;
     } else {
       const param = this.convertRotationSpeedFromHomeKitToInnova(value);
-      this.updateDevice('set/fan', { 'value': param }).then(() => {
-        this.state.rotationSpeed = value as number;
-        if (!this.state.active) {
-          this.service.updateCharacteristic(this.platform.Characteristic.Active, this.platform.Characteristic.Active.ACTIVE);
-          this.state.active = true;
-        }
-      });
+      await this.updateDevice('set/fan', { 'value': param });
+      this.state.rotationSpeed = value as number;
+      if (!this.state.active) {
+        this.service.updateCharacteristic(this.platform.Characteristic.Active, this.platform.Characteristic.Active.ACTIVE);
+        this.state.active = true;
+      }
     }
   }
 
@@ -225,33 +221,30 @@ export class PowrmaticAirConditioner {
     } else {
       param = 7;
     }
-    this.updateDevice('set/feature/rotation', { 'value': param }).then(() => {
-      this.state.swingMode = value as number;
-    });
+    await this.updateDevice('set/feature/rotation', { 'value': param });
+    this.state.swingMode = value as number;
   }
 
   async setCoolingThresholdTemperature(value: CharacteristicValue) {
     this.platform.log.info(`[${this.accessory.displayName}] Set CoolingThresholdTemperature -> ${value}`);
-    this.updateDevice('set/setpoint', { 'p_temp': value }).then(() => {
-      this.state.coolingThresholdTemperature = value as number;
-      if (this.state.targetHeaterCoolerState === this.platform.Characteristic.TargetHeaterCoolerState.AUTO) {
-        this.platform.log.debug(`[${this.accessory.displayName}] Auto setting Heating Threshold -> ${value}`);
-        this.service.updateCharacteristic(this.platform.Characteristic.HeatingThresholdTemperature, value);
-        this.state.heatingThresholdTemperature = value as number;
-      }
-    });
+    await this.updateDevice('set/setpoint', { 'sp': value });
+    this.state.coolingThresholdTemperature = value as number;
+    if (this.state.targetHeaterCoolerState === this.platform.Characteristic.TargetHeaterCoolerState.AUTO) {
+      this.platform.log.debug(`[${this.accessory.displayName}] Auto setting Heating Threshold -> ${value}`);
+      this.service.updateCharacteristic(this.platform.Characteristic.HeatingThresholdTemperature, value);
+      this.state.heatingThresholdTemperature = value as number;
+    }
   }
 
   async setHeatingThresholdTemperature(value: CharacteristicValue) {
     this.platform.log.info(`[${this.accessory.displayName}] Set HeatingThresholdTemperature -> ${value}`);
-    this.updateDevice('set/setpoint', { 'p_temp': value }).then(() => {
-      this.state.heatingThresholdTemperature = value as number;
-      if (this.state.targetHeaterCoolerState === this.platform.Characteristic.TargetHeaterCoolerState.AUTO) {
-        this.platform.log.debug(`[${this.accessory.displayName}] Auto setting Cooling Threshold -> ${value}`);
-        this.service.updateCharacteristic(this.platform.Characteristic.CoolingThresholdTemperature, value);
-        this.state.coolingThresholdTemperature = value as number;
-      }
-    });
+    await this.updateDevice('set/setpoint', { 'sp': value });
+    this.state.heatingThresholdTemperature = value as number;
+    if (this.state.targetHeaterCoolerState === this.platform.Characteristic.TargetHeaterCoolerState.AUTO) {
+      this.platform.log.debug(`[${this.accessory.displayName}] Auto setting Cooling Threshold -> ${value}`);
+      this.service.updateCharacteristic(this.platform.Characteristic.CoolingThresholdTemperature, value);
+      this.state.coolingThresholdTemperature = value as number;
+    }
   }
 
   async getDeviceStatus() {
