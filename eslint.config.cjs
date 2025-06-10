@@ -1,7 +1,7 @@
-import globals from 'globals';
-import tseslint from 'typescript-eslint';
+const globals = require('globals');
+const tseslint = require('typescript-eslint');
 
-export default tseslint.config(
+module.exports = tseslint.config(
   {
     files: ['**/*.ts'],
     languageOptions: {
