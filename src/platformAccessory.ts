@@ -268,7 +268,10 @@ export class PowrmaticAirConditioner {
 
   async updateDevice(endpoint: string, params = {}) {
     const query = Object.keys(params).map(key => `${key}=${params[key]}`).join('&');
-    const url = `http://${this.accessory.context.device.ipAddress}/api/v/1/${endpoint}?${query}`;
+    let url = `http://${this.accessory.context.device.ipAddress}/api/v/1/${endpoint}`;
+    if (query) {
+      url += `?${query}`;
+    }
     this.platform.log.info(`[${this.accessory.displayName}] Updating device at ${url}`);
     try {
       const response = await axios.post(url, {}, { timeout: 5000 });
