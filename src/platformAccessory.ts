@@ -227,7 +227,7 @@ export class PowrmaticAirConditioner {
 
   async setCoolingThresholdTemperature(value: CharacteristicValue) {
     this.platform.log.info(`[${this.accessory.displayName}] Set CoolingThresholdTemperature -> ${value}`);
-    await this.updateDevice('set/setpoint', { 'sp': value });
+    await this.updateDevice('set/setpoint', { 'p_temp': value });
     this.state.coolingThresholdTemperature = value as number;
     if (this.state.targetHeaterCoolerState === this.platform.Characteristic.TargetHeaterCoolerState.AUTO) {
       this.platform.log.debug(`[${this.accessory.displayName}] Auto setting Heating Threshold -> ${value}`);
@@ -238,7 +238,7 @@ export class PowrmaticAirConditioner {
 
   async setHeatingThresholdTemperature(value: CharacteristicValue) {
     this.platform.log.info(`[${this.accessory.displayName}] Set HeatingThresholdTemperature -> ${value}`);
-    await this.updateDevice('set/setpoint', { 'sp': value });
+    await this.updateDevice('set/setpoint', { 'p_temp': value });
     this.state.heatingThresholdTemperature = value as number;
     if (this.state.targetHeaterCoolerState === this.platform.Characteristic.TargetHeaterCoolerState.AUTO) {
       this.platform.log.debug(`[${this.accessory.displayName}] Auto setting Cooling Threshold -> ${value}`);
@@ -267,10 +267,11 @@ export class PowrmaticAirConditioner {
   }
 
   async updateDevice(endpoint: string, params = {}) {
-    const url = `http://${this.accessory.context.device.ipAddress}/api/v/1/${endpoint}`;
-    this.platform.log.info(`[${this.accessory.displayName}] Updating device at ${url} with params:`, params);
+    const query = Object.keys(params).map(key => `${key}=${params[key]}`).join('&');
+    const url = `http://${this.accessory.context.device.ipAddress}/api/v/1/${endpoint}?${query}`;
+    this.platform.log.info(`[${this.accessory.displayName}] Updating device at ${url}`);
     try {
-      const response = await axios.post(url, params, { timeout: 5000 });
+      const response = await axios.post(url, {}, { timeout: 5000 });
       this.platform.log.debug(`[${this.accessory.displayName}] Device update response:`, response.data);
       if (!response.data || !response.data.success) {
         this.platform.log.error(`[${this.accessory.displayName}] Failed to update device. Response:`,
