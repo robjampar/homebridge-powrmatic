@@ -260,10 +260,10 @@ export class PowrmaticAirConditioner {
     try {
       const response = await axios.get(url, { timeout: 5000 });
       this.platform.log.debug(`[${this.accessory.displayName}] Device status response:`, response.data);
-      if (response.data && response.data.success) {
-        return response.data.data as DeviceStatus;
+      if (response.data && response.data.success && response.data.RESULT) {
+        return response.data.RESULT as DeviceStatus;
       } else {
-        this.platform.log.error(`[${this.accessory.displayName}] Failed to get device status. Response:`,
+        this.platform.log.warn(`[${this.accessory.displayName}] Failed to get device status. Response:`,
           response.data);
         return null;
       }
