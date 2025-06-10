@@ -1,7 +1,7 @@
 {
   "displayName": "Homebridge Powrmatic",
   "name": "homebridge-powrmatic",
-  "version": "2.0.7",
+  "version": "2.0.8",
   "description": "A homebridge plugin for Powrmatic Air Condtioner units.",
   "license": "Apache-2.0",
   "repository": {
@@ -13,7 +13,7 @@
   },
   "engines": {
     "node": ">=18.0.0",
-    "homebridge": ">=2.0.0"
+    "homebridge": ">=1.0.0"
   },
   "main": "dist/index.js",
   "scripts": {
