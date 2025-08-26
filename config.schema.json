@@ -8,7 +8,7 @@
       "name": {
         "title": "Name",
         "type": "string",
-        "default": "Powrmatic",
+        "default": "HomebridgePowrmatic",
         "required": true
       },
       "devices": {
